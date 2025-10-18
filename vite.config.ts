@@ -15,7 +15,6 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
-  base: "/wishlist-bingo-app/",
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
