@@ -124,7 +124,10 @@ export const BingoShareView = ({
 
       {/* Powered by text */}
       <div className="text-center">
-        <span className="text-white/60 text-sm">Powered by Zoo Financial</span>
+        <span className="text-white/60 text-sm">
+          Powered by Zoo Financial<br />
+          LINE: @17g8
+        </span>
       </div>
     </div>
   );

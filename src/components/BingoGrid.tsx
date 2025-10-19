@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import html2canvas from "html2canvas";
 import { shareToInstagramStory } from "@/utils/instagramShare";
+import { BingoShareView } from "./BingoShareView";
 import { getBackgroundImage } from "@/utils/backgroundConfig";
 import { useState, useEffect } from "react";
 
@@ -16,6 +17,7 @@ interface BingoGridProps {
   ratings: Map<string, number>;
   onGoalClick: (goalId: string) => void;
   onReset: () => void;
+  onRestart: () => void;
   onBack: () => void;
   onBackToHome: () => void;
   category: BingoCategory;
@@ -30,6 +32,7 @@ export const BingoGrid = ({
   ratings,
   onGoalClick,
   onReset,
+  onRestart,
   onBack,
   onBackToHome,
   category,
@@ -97,7 +100,7 @@ export const BingoGrid = ({
 
       // 創建背景圖片元素，而不是使用 CSS background-image
       const backgroundImg = document.createElement('img');
-      backgroundImg.src = `${window.location.origin}/wishlist-bingo-app/backgrounds/bg-dark-blue.png`;
+      backgroundImg.src = `${window.location.origin}/backgrounds/bg-dark-blue.png`;
       backgroundImg.style.position = 'absolute';
       backgroundImg.style.top = '0';
       backgroundImg.style.left = '0';
@@ -223,7 +226,7 @@ export const BingoGrid = ({
           }).join('')}
         </div>
         <div style="text-align: center; color: rgba(255,255,255,0.6); font-size: 10px;">
-          Powered by Zoo Financial
+          Powered by Zoo Financial<br>LINE: @17g8
         </div>
       `;
 
@@ -267,20 +270,68 @@ export const BingoGrid = ({
           ctx.drawImage(originalCanvas, 0, 0);
           resolve();
         };
-        bgImg.src = `${window.location.origin}/wishlist-bingo-app/backgrounds/bg-dark-blue.png`;
+        bgImg.src = `${window.location.origin}/backgrounds/bg-dark-blue.png`;
       });
 
       // 使用合成後的 canvas
       const canvas = finalCanvas;
 
-      const success = await shareToInstagramStory(canvas);
+      // 將 canvas 轉換為 blob
+      canvas.toBlob(async (blob) => {
+        if (!blob) {
+          throw new Error('無法生成圖片');
+        }
 
-      if (success) {
+        const shareData = {
+          title: '我的願望清單賓果',
+          text: '看看我的願望清單賓果成果！',
+          files: [new File([blob], 'wishlist-bingo.png', { type: 'image/png' })]
+        };
+
+        // 檢查是否支援 Web Share API 和檔案分享
+        if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+          try {
+            await navigator.share(shareData);
+            toast({
+              title: "分享成功",
+              description: "已成功分享您的賓果成果！"
+            });
+            return;
+          } catch (shareError) {
+            if (shareError.name !== 'AbortError') {
+              console.error('Web Share API 分享失敗:', shareError);
+            }
+          }
+        }
+
+        // 降級處理：創建下載連結並開啟分享 URL
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'wishlist-bingo.png';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        // 開啟社交媒體分享 URL
+        const shareText = encodeURIComponent('看看我的願望清單賓果成果！\nLINE: @17g8');
+        const shareUrl = encodeURIComponent(window.location.href);
+        
+        // 嘗試開啟 LINE 分享（在行動裝置上較常用）
+        if (/Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+          window.open(`https://social-plugins.line.me/lineit/share?url=${shareUrl}&text=${shareText}`, '_blank');
+        } else {
+          // 桌面版開啟 Facebook 分享
+          window.open(`https://www.facebook.com/sharer/sharer.php?u=${shareUrl}&quote=${shareText}`, '_blank');
+        }
+
         toast({
-          title: "分享成功！",
-          description: "已成功分享到 Instagram 限時動態",
+          title: "圖片已下載",
+          description: "圖片已保存到您的裝置，分享頁面已開啟"
         });
-      }
+      }, 'image/png');
+
     } catch (error) {
       console.error('分享失敗:', error);
       toast({
@@ -330,12 +381,20 @@ export const BingoGrid = ({
         })}
       </div>
 
+      {/* Powered by text - positioned below grid */}
+      <div className="text-center mb-20">
+        <span className="text-white/60 text-xs">
+          Powered by Zoo Financial<br />
+          LINE: @17g8
+        </span>
+      </div>
+
       {/* Footer with Action Buttons */}
       <div className="fixed bottom-0 left-0 right-0 bg-black/80 backdrop-blur-sm z-20">
         <div className="container mx-auto p-4">
           <div className="flex flex-col space-y-3 max-w-md mx-auto">
             <Button
-              onClick={isCompleted ? onReset : handleComplete}
+              onClick={isCompleted ? onRestart : handleComplete}
               className={cn(
                 "flex w-full items-center justify-center gap-2 rounded-lg h-12 px-4 text-base font-bold max-w-md",
                 isCompleted
@@ -358,23 +417,19 @@ export const BingoGrid = ({
 
             <Button
               onClick={handleShare}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-500 h-12 px-4 text-white text-base font-bold hover:bg-blue-600 max-w-md"
+              className="flex w-full items-center justify-center gap-2 rounded-lg h-12 px-4 text-base font-bold bg-green-500 text-white hover:bg-green-600"
             >
               <Share2 className="w-5 h-5" />
               <span>分享成果</span>
             </Button>
 
             <Button
-              onClick={onBackToHome}
-              className="flex w-full items-center justify-center rounded-lg bg-gray-600 h-12 px-4 text-white text-base font-bold hover:bg-gray-700 max-w-md"
+              onClick={onReset}
+              className="flex w-full items-center justify-center gap-2 rounded-lg h-12 px-4 text-base font-bold bg-gray-600 text-white hover:bg-gray-700"
             >
+              <RotateCcw className="w-5 h-5" />
               <span>再玩一張</span>
             </Button>
-          </div>
-
-          {/* Powered by text */}
-          <div className="text-center mt-3">
-            <span className="text-white/60 text-xs">Powered by Zoo Financial</span>
           </div>
         </div>
       </div>
